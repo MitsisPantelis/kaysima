@@ -9,12 +9,12 @@ const FUEL_META = {
   6: { icon: '💧', color: '#06b6d4', desc: 'Υγραέριο LPG' },
 };
 
-export default function FuelSelector({ onSelect, loading, error }) {
+export default function FuelSelector({ onSelect, loading, selectedFuel, error }) {
   return (
     <div className="selector-root">
       <div className="selector-hero">
         <div className="selector-logo">⛽</div>
-        <h1 className="selector-title">Κάψιμα</h1>
+        <h1 className="selector-title">Φθηνά Καύσιμα</h1>
         <p className="selector-subtitle">
           Τιμές καυσίμων σε πραγματικό χρόνο σε όλη την Ελλάδα
         </p>
@@ -29,28 +29,26 @@ export default function FuelSelector({ onSelect, loading, error }) {
       <div className="fuel-grid">
         {FUEL_TYPES.map(ft => {
           const meta = FUEL_META[ft.code];
+          const isSelected = selectedFuel === ft.code;
+          const isProcessing = isSelected && loading;
+          
           return (
             <button
               key={ft.code}
-              className="fuel-card"
+              className={`fuel-card${isProcessing ? ' fuel-card--loading' : ''}`}
               style={{ '--card-color': meta.color }}
-              onClick={() => !loading && onSelect(ft.code)}
-              disabled={loading}
+              onClick={() => onSelect(ft.code)}
+              disabled={isProcessing}
             >
-              <span className="fuel-icon">{meta.icon}</span>
+              <span className="fuel-icon">{isProcessing ? '⏳' : meta.icon}</span>
               <span className="fuel-name">{ft.name}</span>
-              <span className="fuel-desc">{meta.desc}</span>
+              <span className="fuel-desc">{isProcessing ? 'Φόρτωση…' : meta.desc}</span>
             </button>
           );
         })}
       </div>
 
-      <p className="selector-footer">
-        Δεδομένα από το{' '}
-        <a href="https://www.fuelprices.gr" target="_blank" rel="noopener noreferrer">
-          Παρατηρητήριο Τιμών Υγρών Καυσίμων
-        </a>
-      </p>
+
     </div>
   );
 }
