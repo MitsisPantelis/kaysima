@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import { fetchAllFuelTypesInBounds } from '../api.js';
-import { FUEL_TYPES } from '../constants.js';
+import { FUEL_TYPES, DEBUG } from '../constants.js';
+
+function log(...args) {
+  if (DEBUG) console.log('[Kaysima MapView]', ...args);
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -53,13 +57,24 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
   const [scrapeDate, setScrapeDate] = useState('');
 
   useEffect(() => {
+    log(`📍 MapView mounted, fetching stations for location: ${userLocation.lat}, ${userLocation.lon}`);
+    setLoading(true);
+    setError(null);
+
     fetchAllFuelTypesInBounds(userLocation.lat, userLocation.lon)
       .then(data => {
+        log(`✅ Stations fetched: ${data.length} total`);
         setStations(data);
         const withDate = data.find(s => s.scrape_date);
-        if (withDate) setScrapeDate(withDate.scrape_date);
+        if (withDate) {
+          log(`📅 Scrape date: ${withDate.scrape_date}`);
+          setScrapeDate(withDate.scrape_date);
+        }
       })
-      .catch(e => setError(e.message))
+      .catch(e => {
+        log(`❌ Error fetching stations: ${e.message}`);
+        setError(e.message);
+      })
       .finally(() => setLoading(false));
   }, [userLocation.lat, userLocation.lon]);
 
@@ -69,6 +84,8 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
     .filter(p => p !== null && p !== undefined);
   const minP = selectedPrices.length ? Math.min(...selectedPrices) : 0;
   const maxP = selectedPrices.length ? Math.max(...selectedPrices) : 0;
+
+  log(`💰 Selected fuel (${selectedFuel}): ${selectedPrices.length} prices, range €${minP.toFixed(3)}-€${maxP.toFixed(3)}`);
 
   const fuelName = FUEL_TYPES.find(f => f.code === selectedFuel)?.name ?? '';
 
@@ -105,8 +122,9 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         zoomControl
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
         {/* User location dot */}

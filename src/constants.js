@@ -1,3 +1,4 @@
+export const DEBUG             = true; // Set to false to disable console logs
 export const SUPABASE_URL      = 'https://pdagrqklqozlztwifkdv.supabase.co';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkYWdycWtscW96bHp0d2lma2R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMDI2MDYsImV4cCI6MjA5MDg3ODYwNn0.9pAtETDLnxAW-oM8Zie7bTmqNrYy1ZThIIe2AcC-D_A';
 

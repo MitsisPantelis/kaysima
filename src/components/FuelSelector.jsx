@@ -21,10 +21,10 @@ export default function FuelSelector({ onSelect, loading, error }) {
       </div>
 
       <div className="selector-prompt">
-        {loading ? '📍 Εντοπισμός τοποθεσίας…' : 'Επίλεξε τύπο καυσίμου'}
+        {loading ? '📍 Εντοπισμός τοποθεσίας…' : 'Διάλεξε καύσιμο'}
       </div>
 
-      {error && <div className="selector-error">{error}</div>}
+      {error && <div className="selector-error">⚠ {error}</div>}
 
       <div className="fuel-grid">
         {FUEL_TYPES.map(ft => {

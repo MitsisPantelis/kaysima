@@ -1,4 +1,8 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, FUEL_TYPES } from './constants';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, FUEL_TYPES, DEBUG } from './constants';
+
+function log(...args) {
+  if (DEBUG) console.log('[Kaysima]', ...args);
+}
 
 function buildHeaders() {
   return {
@@ -15,10 +19,14 @@ function buildHeaders() {
  * radiusDeg: approximate degree offset (~0.18° ≈ 20 km at Greek latitudes)
  */
 export async function fetchAllFuelTypesInBounds(lat, lon, radiusDeg = 0.18) {
+  log(`🔍 Fetching stations in bounding box: lat=${lat}, lon=${lon}, radius=${radiusDeg}°`);
+
   const latMin = (lat - radiusDeg).toFixed(5);
   const latMax = (lat + radiusDeg).toFixed(5);
   const lonMin = (lon - radiusDeg * 1.35).toFixed(5);
   const lonMax = (lon + radiusDeg * 1.35).toFixed(5);
+
+  log(`📦 Bounds: lat [${latMin}, ${latMax}], lon [${lonMin}, ${lonMax}]`);
 
   const requests = FUEL_TYPES.map(({ code: fuelType }) => {
     const url = new URL(`${SUPABASE_URL}/rest/v1/prices_with_station`);
@@ -34,39 +42,57 @@ export async function fetchAllFuelTypesInBounds(lat, lon, radiusDeg = 0.18) {
     );
     url.searchParams.set('limit', '1000');
 
+    log(`⛽ Fuel type ${fuelType}: ${url.toString().substring(0, 100)}...`);
+
     return fetch(url.toString(), { headers: buildHeaders() }).then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
+      if (!r.ok) {
+        log(`❌ HTTP ${r.status} for fuel type ${fuelType}`);
+        throw new Error(`HTTP ${r.status}`);
+      }
+      return r.json().then(data => {
+        log(`✅ Fuel type ${fuelType}: ${data.length} stations`);
+        return data;
+      });
     });
   });
 
-  const results = await Promise.all(requests);
+  try {
+    const results = await Promise.all(requests);
 
-  // Merge into one object per station keyed by name+address
-  const stationMap = new Map();
-  for (const rows of results) {
-    for (const row of rows) {
-      if (row.lat === null || row.lon === null) continue;
-      const key = `${row.station_name}||${row.address}`;
-      if (!stationMap.has(key)) {
-        stationMap.set(key, {
-          station_name: row.station_name,
-          brand:        row.brand,
-          address:      row.address,
-          lat:          row.lat,
-          lon:          row.lon,
-          nomos_code:   row.nomos_code,
-          scrape_date:  row.scrape_date,
-          prices:       {},
-        });
+    // Merge into one object per station keyed by name+address
+    const stationMap = new Map();
+    for (const rows of results) {
+      for (const row of rows) {
+        if (row.lat === null || row.lon === null) {
+          log(`⚠️  Skipping station ${row.station_name}: no coordinates`);
+          continue;
+        }
+        const key = `${row.station_name}||${row.address}`;
+        if (!stationMap.has(key)) {
+          stationMap.set(key, {
+            station_name: row.station_name,
+            brand:        row.brand,
+            address:      row.address,
+            lat:          row.lat,
+            lon:          row.lon,
+            nomos_code:   row.nomos_code,
+            scrape_date:  row.scrape_date,
+            prices:       {},
+          });
+        }
+        stationMap.get(key).prices[row.fuel_type] = {
+          price:       row.price,
+          product:     row.product,
+          reported_at: row.reported_at,
+        };
       }
-      stationMap.get(key).prices[row.fuel_type] = {
-        price:       row.price,
-        product:     row.product,
-        reported_at: row.reported_at,
-      };
     }
-  }
 
-  return Array.from(stationMap.values());
+    const merged = Array.from(stationMap.values());
+    log(`📍 Total unique stations merged: ${merged.length}`);
+    return merged;
+  } catch (error) {
+    log(`❌ Error fetching stations:`, error);
+    throw error;
+  }
 }
