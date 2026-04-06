@@ -122,9 +122,14 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         zoomControl
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png"
+          subdomains={['a', 'b', 'c', 'd']}
+          maxZoom={20}
+          eventHandlers={{
+            load: () => log('✅ TileLayer loaded'),
+            error: (e) => log('❌ TileLayer error:', e),
+          }}
         />
 
         {/* User location dot */}
