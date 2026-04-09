@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { fetchAllFuelTypesInBounds } from '../api.js';
+import { fetchAllFuelTypesInBounds, fetchNomosAverages } from '../api.js';
 import { FUEL_TYPES, NOMOS_CODES, DEBUG } from '../constants.js';
 
 function log(...args) {
@@ -110,6 +110,7 @@ function MapEventListener({ onBoundsChange }) {
 
 export default function MapView({ selectedFuel, userLocation, onBack }) {
   const [stations,   setStations]   = useState([]);
+  const [nomosData,  setNomosData]  = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [scrapeDate, setScrapeDate] = useState('');
@@ -144,6 +145,28 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
       .finally(() => setLoading(false));
   };
 
+  const fetchNomosData = () => {
+    log(`📍 Fetching nomos averages for fuel type: ${selectedFuel}`);
+    setLoading(true);
+    setError(null);
+
+    fetchNomosAverages(selectedFuel)
+      .then(data => {
+        log(`✅ Nomos averages fetched: ${data.length} total`);
+        setNomosData(data);
+        const withDate = data.find(n => n.last_updated);
+        if (withDate) {
+          log(`📅 Last updated: ${withDate.last_updated}`);
+          setScrapeDate(withDate.last_updated);
+        }
+      })
+      .catch(e => {
+        log(`❌ Error fetching nomos averages: ${e.message}`);
+        setError(e.message);
+      })
+      .finally(() => setLoading(false));
+  };
+
   // Initial fetch on mount
   useEffect(() => {
     log(`📍 MapView mounted, fetching stations for location: ${userLocation.lat}, ${userLocation.lon}`);
@@ -154,55 +177,28 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
   const handleBoundsChange = (lat, lon, z) => {
     setMapCenter({ lat, lon });
     setZoom(z);
-    fetchStations(lat, lon);
+    
+    // Zoom threshold: show nomos averages when zoom < 12
+    if (z < 12) {
+      fetchNomosData();
+    } else {
+      fetchStations(lat, lon);
+    }
   };
 
   // Aggregate stations by nomos (for zoomed-out view)
-  const ZOOM_THRESHOLD = 10;
+  const ZOOM_THRESHOLD = 12;
   const isZoomedOut = zoom < ZOOM_THRESHOLD;
 
-  const aggregatedByNomos = isZoomedOut ? (() => {
-    const nomosMap = new Map();
-    for (const station of stations) {
-      const nomos = station.nomos_code || 'unknown';
-      if (!nomosMap.has(nomos)) {
-        nomosMap.set(nomos, {
-          nomos_code: nomos,
-          prices: {},
-          stations: [],
-          avgLat: 0,
-          avgLon: 0,
-        });
-      }
-      const nomosGroup = nomosMap.get(nomos);
-      nomosGroup.stations.push(station);
-      nomosGroup.avgLat += station.lat;
-      nomosGroup.avgLon += station.lon;
-
-      // Aggregate prices by fuel type
-      if (station.prices[selectedFuel]?.price !== null && station.prices[selectedFuel]?.price !== undefined) {
-        if (!nomosGroup.prices[selectedFuel]) {
-          nomosGroup.prices[selectedFuel] = { prices: [], count: 0 };
-        }
-        nomosGroup.prices[selectedFuel].prices.push(station.prices[selectedFuel].price);
-      }
+  const aggregatedByNomos = isZoomedOut ? nomosData.map(n => ({
+    nomos_code: n.nomos_code,
+    avgLat: n.centroid_lat,
+    avgLon: n.centroid_lon,
+    stationCount: n.station_count,
+    prices: {
+      [selectedFuel]: { avg: n.avg_price }
     }
-
-    // Calculate averages
-    for (const nomosGroup of nomosMap.values()) {
-      nomosGroup.avgLat /= nomosGroup.stations.length;
-      nomosGroup.avgLon /= nomosGroup.stations.length;
-      
-      // Calculate average price
-      const prices = nomosGroup.prices[selectedFuel]?.prices || [];
-      if (prices.length > 0) {
-        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-        nomosGroup.prices[selectedFuel].avg = avg;
-      }
-    }
-
-    return Array.from(nomosMap.values());
-  })() : [];
+  })) : [];
 
   // Price range for selected fuel type (for colour coding)
   let selectedPrices, minP, maxP;
@@ -296,7 +292,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
                 <Popup maxWidth={280}>
                   <div className="popup-content">
                     <div className="popup-name">📍 {getNomosName(nomosGroup.nomos_code)}</div>
-                    <div className="popup-address">{nomosGroup.stations.length} σταθμοί</div>
+                    <div className="popup-address">{nomosGroup.stationCount} σταθμοί</div>
                     <div className="popup-prices">
                       <div className="popup-price-row popup-price-row--selected">
                         <span className="popup-fuel-name">Μέσος όρος {FUEL_TYPES.find(f => f.code === selectedFuel)?.name}</span>

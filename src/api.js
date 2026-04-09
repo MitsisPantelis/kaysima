@@ -96,3 +96,32 @@ export async function fetchAllFuelTypesInBounds(lat, lon, radiusDeg = 0.18) {
     throw error;
   }
 }
+
+/**
+ * Fetch nomos averages for all nomos regions across Greece.
+ * Used when zoomed out (zoom < 12) to show aggregated regional data.
+ */
+export async function fetchNomosAverages(fuelType) {
+  log(`🔍 Fetching nomos averages for fuel type ${fuelType}`);
+
+  const url = new URL(`${SUPABASE_URL}/rest/v1/nomos_averages`);
+  url.searchParams.set('fuel_type', `eq.${fuelType}`);
+  url.searchParams.set(
+    'select',
+    'nomos_code,fuel_type,avg_price,centroid_lat,centroid_lon,station_count,last_updated',
+  );
+
+  try {
+    const response = await fetch(url.toString(), { headers: buildHeaders() });
+    if (!response.ok) {
+      log(`❌ HTTP ${response.status} fetching nomos averages`);
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    log(`✅ Fetched nomos averages: ${data.length} nomos regions`);
+    return data;
+  } catch (error) {
+    log(`❌ Error fetching nomos averages:`, error);
+    throw error;
+  }
+}
