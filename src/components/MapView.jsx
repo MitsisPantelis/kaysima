@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { fetchAllFuelTypesInBounds, fetchNomosAverages } from '../api.js';
@@ -320,7 +320,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
   }, []);
 
   // Handle map bounds change (from MapEventListener)
-  const handleBoundsChange = (lat, lon, z) => {
+  const handleBoundsChange = useCallback((lat, lon, z) => {
     setZoom(z);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -333,7 +333,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         fetchStations(lat, lon);
       }
     }, 500);
-  };
+  }, []);
 
   // Aggregate stations by nomos (for zoomed-out view)
   const ZOOM_THRESHOLD = 12;
@@ -494,7 +494,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
             const icon      = getCachedIcon(price, cls);
 
             return (
-              <Marker key={i} position={[station.lat, station.lon]} icon={icon} zIndexOffset={getMarkerZIndex(cls)}>
+              <Marker key={stationKey} position={[station.lat, station.lon]} icon={icon} zIndexOffset={getMarkerZIndex(cls)}>
                 <Popup maxWidth={280}>
                   <div className="popup-content">
                     <div className="popup-header">
