@@ -209,6 +209,35 @@ function MapEventListener({ onBoundsChange }) {
   return null;
 }
 
+function RecenterControl({ userLocation }) {
+  const map = useMap();
+
+  const handleClick = () => {
+    const targetZoom = Math.max(map.getZoom(), 13);
+    log(`📍 Recentering map to user location: ${userLocation.lat}, ${userLocation.lon}, zoom=${targetZoom}`);
+    map.flyTo([userLocation.lat, userLocation.lon], targetZoom, {
+      animate: true,
+      duration: 0.8,
+    });
+  };
+
+  return (
+    <div className="leaflet-top leaflet-right">
+      <div className="leaflet-control leaflet-bar map-recenter-control">
+        <button
+          type="button"
+          className="map-recenter-btn"
+          onClick={handleClick}
+          title="Κέντρο στη θέση μου"
+          aria-label="Κέντρο στη θέση μου"
+        >
+          ◎
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function MapView({ selectedFuel, userLocation, onBack }) {
@@ -382,6 +411,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
 
         {/* Listen for map movement to update stations */}
         <MapEventListener onBoundsChange={handleBoundsChange} />
+        <RecenterControl userLocation={userLocation} />
 
         {/* User location dot */}
         <CircleMarker
