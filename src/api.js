@@ -18,7 +18,7 @@ function buildHeaders() {
  *
  * radiusDeg: approximate degree offset (~0.18° ≈ 20 km at Greek latitudes)
  */
-export async function fetchAllFuelTypesInBounds(lat, lon, radiusDeg = 0.18) {
+export async function fetchAllFuelTypesInBounds(lat, lon, radiusDeg = 0.18, signal) {
   log(`🔍 Fetching stations in bounding box: lat=${lat}, lon=${lon}, radius=${radiusDeg}°`);
 
   const latMin = (lat - radiusDeg).toFixed(5);
@@ -44,7 +44,7 @@ export async function fetchAllFuelTypesInBounds(lat, lon, radiusDeg = 0.18) {
 
     log(`⛽ Fuel type ${fuelType}: ${url.toString().substring(0, 100)}...`);
 
-    return fetch(url.toString(), { headers: buildHeaders() }).then(r => {
+    return fetch(url.toString(), { headers: buildHeaders(), signal }).then(r => {
       if (!r.ok) {
         log(`❌ HTTP ${r.status} for fuel type ${fuelType}`);
         throw new Error(`HTTP ${r.status}`);

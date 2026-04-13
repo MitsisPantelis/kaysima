@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { fetchAllFuelTypesInBounds, fetchNomosAverages } from '../api.js';
@@ -258,18 +258,22 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
   const [mapCenter,  setMapCenter]  = useState({ lat: userLocation.lat, lon: userLocation.lon });
   const [zoom,       setZoom]       = useState(13);
   const fetchAbortRef = useRef(null);
+  const debounceRef = useRef(null);
+  const lastFetchPosRef = useRef({ lat: userLocation.lat, lon: userLocation.lon });
+  const iconCacheRef = useRef(new Map());
 
   const fetchStations = (lat, lon) => {
-    // Cancel previous request if still pending
     if (fetchAbortRef.current) {
       fetchAbortRef.current.abort();
     }
+    const ac = new AbortController();
+    fetchAbortRef.current = ac;
 
     log(`📍 Fetching stations for: lat=${lat.toFixed(5)}, lon=${lon.toFixed(5)}`);
     setLoading(true);
     setError(null);
 
-    fetchAllFuelTypesInBounds(lat, lon)
+    fetchAllFuelTypesInBounds(lat, lon, 0.18, ac.signal)
       .then(data => {
         log(`✅ Stations fetched: ${data.length} total`);
         setStations(data);
@@ -280,6 +284,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         }
       })
       .catch(e => {
+        if (e.name === 'AbortError') return;
         log(`❌ Error fetching stations: ${e.message}`);
         setError(e.message);
       })
@@ -316,15 +321,18 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
 
   // Handle map bounds change (from MapEventListener)
   const handleBoundsChange = (lat, lon, z) => {
-    setMapCenter({ lat, lon });
     setZoom(z);
-    
-    // Zoom threshold: show nomos averages when zoom < 12
-    if (z < 12) {
-      fetchNomosData();
-    } else {
-      fetchStations(lat, lon);
-    }
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (z < 12) {
+        fetchNomosData();
+      } else {
+        const dist = Math.hypot(lat - lastFetchPosRef.current.lat, lon - lastFetchPosRef.current.lon);
+        if (dist < 0.04) return;
+        lastFetchPosRef.current = { lat, lon };
+        fetchStations(lat, lon);
+      }
+    }, 500);
   };
 
   // Aggregate stations by nomos (for zoomed-out view)
@@ -341,17 +349,18 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
     }
   })) : [];
 
-  const nomosAverageByCode = new Map(
-    nomosData.map(n => [n.nomos_code, n.avg_price])
+  const nomosAverageByCode = useMemo(
+    () => new Map(nomosData.map(n => [n.nomos_code, n.avg_price])),
+    [nomosData]
   );
 
-  const topThreeStationKeys = new Set(
+  const topThreeStationKeys = useMemo(() => new Set(
     stations
       .filter(station => getMinPrice(station, selectedFuel) != null)
       .sort((a, b) => getMinPrice(a, selectedFuel) - getMinPrice(b, selectedFuel))
       .slice(0, 3)
       .map(station => `${station.station_name}||${station.address}`)
-  );
+  ), [stations, selectedFuel]);
 
   // Price range for selected fuel type (for colour coding)
   let selectedPrices, minP, maxP;
@@ -368,6 +377,14 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
   maxP = selectedPrices.length ? Math.max(...selectedPrices) : 0;
 
   log(`💰 Selected fuel (${selectedFuel}): ${selectedPrices.length} prices, range €${minP.toFixed(3)}-€${maxP.toFixed(3)}, zoom=${zoom}, aggregated=${isZoomedOut}`);
+
+  const getCachedIcon = (price, cls) => {
+    const key = `${price?.toFixed(3) ?? 'null'}_${cls}`;
+    if (!iconCacheRef.current.has(key)) {
+      iconCacheRef.current.set(key, createPriceIcon(price, cls));
+    }
+    return iconCacheRef.current.get(key);
+  };
 
   const fuelName = FUEL_TYPES.find(f => f.code === selectedFuel)?.name ?? '';
 
@@ -474,7 +491,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
             const nomosAverage = nomosAverageByCode.get(station.nomos_code) ?? null;
             const isTopThree = topThreeStationKeys.has(stationKey);
             const cls       = getStationPriceClass(price, nomosAverage, isTopThree);
-            const icon      = createPriceIcon(price, cls);
+            const icon      = getCachedIcon(price, cls);
 
             return (
               <Marker key={i} position={[station.lat, station.lon]} icon={icon} zIndexOffset={getMarkerZIndex(cls)}>
