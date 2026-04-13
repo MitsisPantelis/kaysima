@@ -504,48 +504,28 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
 
                     <div className="popup-prices">
                       {FUEL_TYPES.map(ft => {
-                        const variants   = station.prices[ft.code];
+                        const variants   = station.prices[ft.code] ?? [];
                         const isSelected = ft.code === selectedFuel;
-                        if (!variants || variants.length === 0) {
-                          return (
-                            <div
-                              key={ft.code}
-                              className={`popup-price-row${isSelected ? ' popup-price-row--selected' : ''}`}
-                            >
-                              <span className="popup-fuel-name">{ft.name}</span>
-                              <span className="popup-fuel-price">—</span>
-                            </div>
-                          );
-                        }
-                        if (variants.length === 1) {
-                          const v = variants[0];
-                          return (
-                            <div
-                              key={ft.code}
-                              className={`popup-price-row${isSelected ? ' popup-price-row--selected' : ''}`}
-                            >
-                              <span className="popup-fuel-name">{v.product || ft.name}</span>
-                              <span className="popup-fuel-price">
-                                {v.price != null ? v.price.toFixed(3) + ' €' : '—'}
-                              </span>
-                            </div>
-                          );
-                        }
-                        // Multiple product variants — show group heading + sub-rows
                         return (
                           <div
                             key={ft.code}
                             className={`popup-fuel-group${isSelected ? ' popup-fuel-group--selected' : ''}`}
                           >
                             <div className="popup-fuel-group-name">{ft.name}</div>
-                            {variants.map((v, vi) => (
-                              <div key={vi} className="popup-price-row popup-price-row--variant">
-                                <span className="popup-fuel-name">{v.product || '—'}</span>
-                                <span className="popup-fuel-price">
-                                  {v.price != null ? v.price.toFixed(3) + ' €' : '—'}
-                                </span>
+                            {variants.length === 0 ? (
+                              <div className="popup-price-row popup-price-row--empty">
+                                <span className="popup-fuel-price">—</span>
                               </div>
-                            ))}
+                            ) : (
+                              variants.map((v, vi) => (
+                                <div key={vi} className="popup-price-row popup-price-row--variant">
+                                  <span className="popup-fuel-name">{v.product || ft.name}</span>
+                                  <span className="popup-fuel-price">
+                                    {v.price != null ? v.price.toFixed(3) + ' €' : '—'}
+                                  </span>
+                                </div>
+                              ))
+                            )}
                           </div>
                         );
                       })}

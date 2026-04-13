@@ -4,6 +4,7 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const FUEL_TYPES = [
   { code: 1, name: 'Αμόλυβδη 95' },
+  { code: 7, name: 'Αμόλυβδη 98' },
   { code: 2, name: 'Αμόλυβδη 100' },
   { code: 3, name: 'Super' },
   { code: 4, name: 'Diesel' },

@@ -7,6 +7,7 @@ const FUEL_META = {
   4: { icon: '🚛', color: '#f59e0b', desc: 'Για diesel κινητήρες' },
   5: { icon: '🔥', color: '#ef4444', desc: 'Πετρέλαιο θέρμανσης' },
   6: { icon: '💧', color: '#06b6d4', desc: 'Υγραέριο LPG' },
+  7: { icon: '🏎️', color: '#ec4899', desc: 'Αμόλυβδη 98 οκτανίων' },
 };
 
 export default function FuelSelector({ onSelect, loading, selectedFuel, error }) {

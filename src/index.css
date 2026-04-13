@@ -91,16 +91,21 @@ body {
 /* ── Fuel Type Grid ── */
 
 .fuel-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 14px;
   width: 100%;
-  max-width: 580px;
+  max-width: 600px;
+}
+
+.fuel-card {
+  flex: 0 0 calc(25% - 11px);
 }
 
 @media (max-width: 480px) {
-  .fuel-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .fuel-card {
+    flex: 0 0 calc(50% - 7px);
   }
 }
 
@@ -361,22 +366,57 @@ body {
 .popup-prices {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0;
   margin-bottom: 8px;
 }
 
+/* Each fuel type is always a group: label + variant rows */
+.popup-fuel-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: transparent;
+  padding: 0;
+}
+
+/* Category label acts as a visual separator */
+.popup-fuel-group-name {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #94a3b8;
+  padding: 7px 4px 2px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 2px;
+}
+
+.popup-prices > .popup-fuel-group:first-child .popup-fuel-group-name {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.popup-fuel-group--selected .popup-fuel-group-name {
+  color: #6d28d9;
+}
+
+/* Variant rows (and the single-item row) */
 .popup-price-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 5px;
   font-size: 0.75rem;
-  background: #f8fafc;
 }
 
-.popup-price-row--selected {
-  background: #ede9fe;
+.popup-price-row--variant {
+  background: #f1f5f9;
+}
+
+.popup-price-row--empty {
+  background: transparent;
 }
 
 .popup-fuel-name {
@@ -386,52 +426,28 @@ body {
 .popup-fuel-price {
   font-weight: 600;
   color: #1e293b;
+  white-space: nowrap;
+  margin-left: 8px;
 }
 
-.popup-price-row--selected .popup-fuel-name {
-  font-weight: 700;
-  color: #4f46e5;
+.popup-price-row--empty .popup-fuel-price {
+  color: #cbd5e1;
+  font-weight: 400;
 }
 
-.popup-price-row--selected .popup-fuel-price {
-  font-weight: 700;
-  color: #4f46e5;
-}
-
-/* Fuel type group with multiple product variants */
-.popup-fuel-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: #f8fafc;
-}
-
-.popup-fuel-group--selected {
+/* Selected fuel type: highlighted variant rows */
+.popup-fuel-group--selected .popup-price-row--variant {
   background: #ede9fe;
 }
 
-.popup-fuel-group-name {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #64748b;
-  margin-bottom: 2px;
-}
-
-.popup-fuel-group--selected .popup-fuel-group-name {
+.popup-fuel-group--selected .popup-price-row--variant .popup-fuel-name {
+  font-weight: 600;
   color: #4f46e5;
 }
 
-.popup-price-row--variant {
-  background: transparent;
-  padding: 2px 4px;
-  padding-left: 8px;
-  border-left: 2px solid #e2e8f0;
-}
-
-.popup-fuel-group--selected .popup-price-row--variant {
-  border-left-color: #c4b5fd;
+.popup-fuel-group--selected .popup-price-row--variant .popup-fuel-price {
+  font-weight: 700;
+  color: #4f46e5;
 }
 
 .popup-reported {
