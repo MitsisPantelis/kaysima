@@ -31,6 +31,15 @@ function log(...args) {
   if (DEBUG) console.log('[Kaysima MapView]', ...args);
 }
 
+// Returns the cheapest price across all product variants for a given fuel type.
+// station.prices[fuelCode] is now an array of { price, product, reported_at }.
+function getMinPrice(station, fuelCode) {
+  const variants = station.prices[fuelCode];
+  if (!variants || variants.length === 0) return null;
+  const prices = variants.map(v => v.price).filter(p => p != null);
+  return prices.length ? Math.min(...prices) : null;
+}
+
 // Helper to get nomos name from code
 function getNomosName(code) {
   const nomos = NOMOS_CODES.find(n => n.code === code);
@@ -338,8 +347,8 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
 
   const topThreeStationKeys = new Set(
     stations
-      .filter(station => station.prices[selectedFuel]?.price != null)
-      .sort((a, b) => a.prices[selectedFuel].price - b.prices[selectedFuel].price)
+      .filter(station => getMinPrice(station, selectedFuel) != null)
+      .sort((a, b) => getMinPrice(a, selectedFuel) - getMinPrice(b, selectedFuel))
       .slice(0, 3)
       .map(station => `${station.station_name}||${station.address}`)
   );
@@ -352,7 +361,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
       .filter(p => p !== null && p !== undefined);
   } else {
     selectedPrices = stations
-      .map(s => s.prices[selectedFuel]?.price)
+      .map(s => getMinPrice(s, selectedFuel))
       .filter(p => p !== null && p !== undefined);
   }
   minP = selectedPrices.length ? Math.min(...selectedPrices) : 0;
@@ -460,8 +469,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         ) : (
           // Zoomed in: show individual station markers
           stations.map((station, i) => {
-            const priceInfo = station.prices[selectedFuel];
-            const price     = priceInfo?.price ?? null;
+            const price      = getMinPrice(station, selectedFuel);
             const stationKey = `${station.station_name}||${station.address}`;
             const nomosAverage = nomosAverageByCode.get(station.nomos_code) ?? null;
             const isTopThree = topThreeStationKeys.has(stationKey);
@@ -496,25 +504,63 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
 
                     <div className="popup-prices">
                       {FUEL_TYPES.map(ft => {
-                        const info       = station.prices[ft.code];
+                        const variants   = station.prices[ft.code];
                         const isSelected = ft.code === selectedFuel;
+                        if (!variants || variants.length === 0) {
+                          return (
+                            <div
+                              key={ft.code}
+                              className={`popup-price-row${isSelected ? ' popup-price-row--selected' : ''}`}
+                            >
+                              <span className="popup-fuel-name">{ft.name}</span>
+                              <span className="popup-fuel-price">—</span>
+                            </div>
+                          );
+                        }
+                        if (variants.length === 1) {
+                          const v = variants[0];
+                          return (
+                            <div
+                              key={ft.code}
+                              className={`popup-price-row${isSelected ? ' popup-price-row--selected' : ''}`}
+                            >
+                              <span className="popup-fuel-name">{v.product || ft.name}</span>
+                              <span className="popup-fuel-price">
+                                {v.price != null ? v.price.toFixed(3) + ' €' : '—'}
+                              </span>
+                            </div>
+                          );
+                        }
+                        // Multiple product variants — show group heading + sub-rows
                         return (
                           <div
                             key={ft.code}
-                            className={`popup-price-row${isSelected ? ' popup-price-row--selected' : ''}`}
+                            className={`popup-fuel-group${isSelected ? ' popup-fuel-group--selected' : ''}`}
                           >
-                            <span className="popup-fuel-name">{ft.name}</span>
-                            <span className="popup-fuel-price">
-                              {info?.price != null ? info.price.toFixed(3) + ' €' : '—'}
-                            </span>
+                            <div className="popup-fuel-group-name">{ft.name}</div>
+                            {variants.map((v, vi) => (
+                              <div key={vi} className="popup-price-row popup-price-row--variant">
+                                <span className="popup-fuel-name">{v.product || '—'}</span>
+                                <span className="popup-fuel-price">
+                                  {v.price != null ? v.price.toFixed(3) + ' €' : '—'}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         );
                       })}
                     </div>
 
-                    {priceInfo?.reported_at && (
-                      <div className="popup-reported">🕒 {priceInfo.reported_at}</div>
-                    )}
+                    {(() => {
+                      const variants = station.prices[selectedFuel];
+                      if (!variants || variants.length === 0) return null;
+                      const cheapest = variants.reduce((a, b) =>
+                        (a.price ?? Infinity) <= (b.price ?? Infinity) ? a : b
+                      );
+                      return cheapest.reported_at
+                        ? <div className="popup-reported">🕒 {cheapest.reported_at}</div>
+                        : null;
+                    })()}
                   </div>
                 </Popup>
               </Marker>

@@ -80,11 +80,15 @@ export async function fetchAllFuelTypesInBounds(lat, lon, radiusDeg = 0.18) {
             prices:       {},
           });
         }
-        stationMap.get(key).prices[row.fuel_type] = {
+        const entry = stationMap.get(key);
+        if (!entry.prices[row.fuel_type]) {
+          entry.prices[row.fuel_type] = [];
+        }
+        entry.prices[row.fuel_type].push({
           price:       row.price,
           product:     row.product,
           reported_at: row.reported_at,
-        };
+        });
       }
     }
 

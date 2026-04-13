@@ -398,6 +398,42 @@ body {
   color: #4f46e5;
 }
 
+/* Fuel type group with multiple product variants */
+.popup-fuel-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.popup-fuel-group--selected {
+  background: #ede9fe;
+}
+
+.popup-fuel-group-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.popup-fuel-group--selected .popup-fuel-group-name {
+  color: #4f46e5;
+}
+
+.popup-price-row--variant {
+  background: transparent;
+  padding: 2px 4px;
+  padding-left: 8px;
+  border-left: 2px solid #e2e8f0;
+}
+
+.popup-fuel-group--selected .popup-price-row--variant {
+  border-left-color: #c4b5fd;
+}
+
 .popup-reported {
   font-size: 0.68rem;
   color: #9ca3af;
