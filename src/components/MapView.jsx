@@ -48,6 +48,10 @@ function getBrandLogoPath(brand) {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+// Previous color logic kept as a reference:
+// each price was compared against the current dataset's min/max range,
+// with the bottom third shown as green, the middle third as orange,
+// and the top third as red.
 function getPriceClass(price, min, max) {
   if (price === null || price === undefined) return 'none';
   const range = max - min || 1;
@@ -58,15 +62,77 @@ function getPriceClass(price, min, max) {
 }
 
 const PRICE_COLORS = {
+  top3:   '#38bdf8',
   cheap:  '#22c55e',
   mid:    '#f59e0b',
   pricey: '#ef4444',
-  none:   '#94a3b8',
+  none:   '#cbd5e1',
 };
+
+const PRICE_Z_INDEX = {
+  top3:  400,
+  cheap: 300,
+  mid:   200,
+  pricey: 100,
+  none:  50,
+};
+
+function getStationPriceClass(price, nomosAverage, isTopThree = false) {
+  if (isTopThree) return 'top3';
+  if (price === null || price === undefined) return 'none';
+  if (nomosAverage === null || nomosAverage === undefined) return 'mid';
+
+  const delta = price - nomosAverage;
+
+  if (delta <= -0.01) return 'cheap';
+  if (delta >= 0.01) return 'pricey';
+  return 'mid';
+}
+
+function getMarkerStyle(cls) {
+  if (cls === 'top3') {
+    return {
+      border: '2px solid rgba(255,255,255,0.95)',
+      boxShadow: '0 0 0 4px rgba(56,189,248,0.28), 0 4px 14px rgba(14,165,233,0.55)',
+      opacity: 1,
+      transform: 'scale(1.08)',
+    };
+  }
+
+  if (cls === 'cheap') {
+    return {
+      border: '2px solid rgba(255,255,255,0.8)',
+      boxShadow: '0 3px 10px rgba(34,197,94,0.35)',
+      opacity: 1,
+      transform: 'scale(1.02)',
+    };
+  }
+
+  if (cls === 'none') {
+    return {
+      border: '1.5px solid rgba(255,255,255,0.45)',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+      opacity: 0.72,
+      transform: 'scale(0.96)',
+    };
+  }
+
+  return {
+    border: '1.5px solid rgba(255,255,255,0.55)',
+    boxShadow: '0 1px 5px rgba(0,0,0,0.45)',
+    opacity: 1,
+    transform: 'scale(1)',
+  };
+}
+
+function getMarkerZIndex(cls) {
+  return PRICE_Z_INDEX[cls] ?? 0;
+}
 
 function createPriceIcon(price, cls) {
   const bg    = PRICE_COLORS[cls] ?? PRICE_COLORS.none;
   const label = price !== null && price !== undefined ? price.toFixed(3) : '—';
+  const markerStyle = getMarkerStyle(cls);
   return L.divIcon({
     className: '',
     html: `<div style="
@@ -78,8 +144,10 @@ function createPriceIcon(price, cls) {
       padding:3px 7px;
       border-radius:10px;
       white-space:nowrap;
-      box-shadow:0 1px 5px rgba(0,0,0,0.45);
-      border:1.5px solid rgba(255,255,255,0.55);
+      box-shadow:${markerStyle.boxShadow};
+      border:${markerStyle.border};
+      opacity:${markerStyle.opacity};
+      transform:${markerStyle.transform};
     ">${label}</div>`,
     iconSize:   [50, 22],
     iconAnchor: [25, 11],
@@ -89,6 +157,7 @@ function createPriceIcon(price, cls) {
 function createNomosIcon(price, cls) {
   const bg    = PRICE_COLORS[cls] ?? PRICE_COLORS.none;
   const label = price !== null && price !== undefined ? price.toFixed(3) : '—';
+  const markerStyle = getMarkerStyle(cls);
   return L.divIcon({
     className: '',
     html: `<div style="
@@ -105,8 +174,10 @@ function createNomosIcon(price, cls) {
       align-items:center;
       justify-content:center;
       white-space:nowrap;
-      box-shadow:0 2px 8px rgba(0,0,0,0.55);
-      border:2px solid rgba(255,255,255,0.7);
+      box-shadow:${markerStyle.boxShadow};
+      border:${markerStyle.border};
+      opacity:${markerStyle.opacity};
+      transform:${markerStyle.transform};
     ">${label}</div>`,
     iconSize:   [40, 40],
     iconAnchor: [20, 20],
@@ -179,7 +250,6 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
 
   const fetchNomosData = () => {
     log(`📍 Fetching nomos averages for fuel type: ${selectedFuel}`);
-    setLoading(true);
     setError(null);
 
     fetchNomosAverages(selectedFuel)
@@ -196,13 +266,14 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         log(`❌ Error fetching nomos averages: ${e.message}`);
         setError(e.message);
       })
-      .finally(() => setLoading(false));
+        .finally(() => setLoading(false));
   };
 
   // Initial fetch on mount
   useEffect(() => {
     log(`📍 MapView mounted, fetching stations for location: ${userLocation.lat}, ${userLocation.lon}`);
     fetchStations(userLocation.lat, userLocation.lon);
+    fetchNomosData();
   }, []);
 
   // Handle map bounds change (from MapEventListener)
@@ -231,6 +302,18 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
       [selectedFuel]: { avg: n.avg_price }
     }
   })) : [];
+
+  const nomosAverageByCode = new Map(
+    nomosData.map(n => [n.nomos_code, n.avg_price])
+  );
+
+  const topThreeStationKeys = new Set(
+    stations
+      .filter(station => station.prices[selectedFuel]?.price != null)
+      .sort((a, b) => a.prices[selectedFuel].price - b.prices[selectedFuel].price)
+      .slice(0, 3)
+      .map(station => `${station.station_name}||${station.address}`)
+  );
 
   // Price range for selected fuel type (for colour coding)
   let selectedPrices, minP, maxP;
@@ -271,6 +354,7 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         {/* Colour legend */}
         {!loading && !error && (
           <div className="map-legend">
+            <span className="legend-dot" style={{ background: PRICE_COLORS.top3 }}   /> Top 3
             <span className="legend-dot" style={{ background: PRICE_COLORS.cheap }}  /> Φθηνό
             <span className="legend-dot" style={{ background: PRICE_COLORS.mid }}    /> Μέτριο
             <span className="legend-dot" style={{ background: PRICE_COLORS.pricey }} /> Ακριβό
@@ -320,7 +404,12 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
             const icon  = createNomosIcon(price, cls);
 
             return (
-              <Marker key={`nomos-${i}`} position={[nomosGroup.avgLat, nomosGroup.avgLon]} icon={icon}>
+              <Marker
+                key={`nomos-${i}`}
+                position={[nomosGroup.avgLat, nomosGroup.avgLon]}
+                icon={icon}
+                zIndexOffset={getMarkerZIndex(cls)}
+              >
                 <Popup maxWidth={280}>
                   <div className="popup-content">
                     <div className="popup-name">📍 {getNomosName(nomosGroup.nomos_code)}</div>
@@ -343,11 +432,14 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
           stations.map((station, i) => {
             const priceInfo = station.prices[selectedFuel];
             const price     = priceInfo?.price ?? null;
-            const cls       = getPriceClass(price, minP, maxP);
+            const stationKey = `${station.station_name}||${station.address}`;
+            const nomosAverage = nomosAverageByCode.get(station.nomos_code) ?? null;
+            const isTopThree = topThreeStationKeys.has(stationKey);
+            const cls       = getStationPriceClass(price, nomosAverage, isTopThree);
             const icon      = createPriceIcon(price, cls);
 
             return (
-              <Marker key={i} position={[station.lat, station.lon]} icon={icon}>
+              <Marker key={i} position={[station.lat, station.lon]} icon={icon} zIndexOffset={getMarkerZIndex(cls)}>
                 <Popup maxWidth={280}>
                   <div className="popup-content">
                     <div className="popup-header">
@@ -367,6 +459,10 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
                       </div>
                     </div>
                     <div className="popup-address">{station.address}</div>
+
+                    <div className="popup-address">
+                      Μέσος όρος νομού: {nomosAverage != null ? `${nomosAverage.toFixed(3)} €` : '—'}
+                    </div>
 
                     <div className="popup-prices">
                       {FUEL_TYPES.map(ft => {
