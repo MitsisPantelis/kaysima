@@ -395,12 +395,6 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
         <button className="back-btn" onClick={onBack}>← Πίσω</button>
         <span className="map-title">⛽ {fuelName}</span>
         {loading && <span className="map-loading">Φόρτωση…</span>}
-        {!loading && !error && (
-          <>
-            <span className="map-count">{isZoomedOut ? `${aggregatedByNomos.length} περιοχές` : `${stations.length} σταθμοί`}</span>
-            <span className="map-zoom" style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '8px' }}>🔍 zoom={zoom}</span>
-          </>
-        )}
         {scrapeDate && (
           <span className="map-date">Δεδομένα: {scrapeDate}</span>
         )}
