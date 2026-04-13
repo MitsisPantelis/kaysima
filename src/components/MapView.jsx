@@ -4,6 +4,29 @@ import L from 'leaflet';
 import { fetchAllFuelTypesInBounds, fetchNomosAverages } from '../api.js';
 import { FUEL_TYPES, NOMOS_CODES, DEBUG } from '../constants.js';
 
+const BRAND_LOGO_EXTENSIONS = {
+  AVIN: 'png',
+  BP: 'png',
+  CYCLON: 'jpg',
+  DRIVE: 'png',
+  EKO: 'png',
+  JETOIL: 'jpg',
+  KAOIL: 'jpg',
+  KMOIL: 'jpg',
+  MEDOIL: 'jpg',
+  REVOIL: 'jpg',
+  SHELL: 'png',
+  SILKOIL: 'png',
+  VALIN: 'jpg',
+  WIN: 'png',
+  'ΑΙΓΑΙΟ (AEGEAN)': 'png',
+  'ΑΝΕΞΑΡΤΗΤΟ ΠΡΑΤΗΡΙΟ': 'png',
+  'ΑΡΓΩ': 'jpg',
+  'ΕΛΙΝΟΙΛ': 'png',
+  'ΕΤΕΚΑ': 'jpg',
+  'ΤΡΙΑΙΝΑ': 'png',
+};
+
 function log(...args) {
   if (DEBUG) console.log('[Kaysima MapView]', ...args);
 }
@@ -12,6 +35,15 @@ function log(...args) {
 function getNomosName(code) {
   const nomos = NOMOS_CODES.find(n => n.code === code);
   return nomos ? nomos.name : code;
+}
+
+function getBrandLogoPath(brand) {
+  if (!brand) return null;
+
+  const extension = BRAND_LOGO_EXTENSIONS[brand];
+  if (!extension) return null;
+
+  return `${import.meta.env.BASE_URL}brands/${encodeURIComponent(brand)}.${extension}`;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -318,10 +350,22 @@ export default function MapView({ selectedFuel, userLocation, onBack }) {
               <Marker key={i} position={[station.lat, station.lon]} icon={icon}>
                 <Popup maxWidth={280}>
                   <div className="popup-content">
-                    <div className="popup-name">{station.station_name}</div>
-                    {station.brand && (
-                      <div className="popup-brand">{station.brand}</div>
-                    )}
+                    <div className="popup-header">
+                      {station.brand && getBrandLogoPath(station.brand) && (
+                        <img
+                          className="popup-logo"
+                          src={getBrandLogoPath(station.brand)}
+                          alt={station.brand}
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="popup-header-text">
+                        {station.brand && (
+                          <div className="popup-name">{station.brand}</div>
+                        )}
+                        <div className="popup-brand">{station.station_name}</div>
+                      </div>
+                    </div>
                     <div className="popup-address">{station.address}</div>
 
                     <div className="popup-prices">
